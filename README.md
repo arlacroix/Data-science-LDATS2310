@@ -1,2 +1,2 @@
 # Data-science-LDATS2310
-Nous essayons github pour la première fois, est-ce vraiment utile ? 
+Le but de ce projet est d'estimer le nombre de sinsitres à partir d'un portefeuille de polices d'assurance dans le cas de la RC auto. 
