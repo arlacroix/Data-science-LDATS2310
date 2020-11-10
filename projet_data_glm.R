@@ -8,23 +8,6 @@ minExposure <- floor(min(base$Exposure, na.rm = TRUE))
 maxExposure <- ceiling(max(base$Exposure, na.rm = TRUE))
 nExposure   <-  (maxExposure-minExposure)+1
 Exposure    <- c(minExposure:maxExposure)
-s1=rep(0,nExposure)
-for (k in 1: nrow(base))
-{
-  j = floor(base$Exposure[k])
-  s1[j] <- s1[j]+1
-}
-
-minAge <- floor(min(base$CarAge, na.rm = TRUE))
-maxAge <- ceiling(max(base$CarAge, na.rm = TRUE))
-nAge   <- (maxAge-minAge)+1
-Age    <- c(minAge:maxAge)
-s2=rep(0,nAge)
-for (k in 1: nrow(base))
-{
-  j = floor(base$CarAge[k])
-  s2[j] <- s2[j]+1
-}
 
 base$Gender <-as.factor(base$Gender)
 base$Area <-  as.factor(base$Area)
