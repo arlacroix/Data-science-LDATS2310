@@ -1,4 +1,13 @@
-base <- read.table("/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance/projet/DBtrain.csv", sep=",", header=TRUE)
+
+base <- read.table("/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance /projet/DBtrain.csv", sep=",", header=TRUE)
+
+# on définit la durée minimale et maximale des contrats des assurés.
+# la fonction floor permet d'arrondir vers le bas (peu importe le premier chiffre décimal) ceiling arrondi de la même manière mais vers le haut
+minExposure <- floor(min(base$Exposure, na.rm = TRUE))
+maxExposure <- ceiling(max(base$Exposure, na.rm = TRUE))
+nExposure   <-  (maxExposure-minExposure)+1
+Exposure    <- c(minExposure:maxExposure)
+
 
 base$Gender <-as.factor(base$Gender)
 base$Area <-  as.factor(base$Area)
@@ -23,11 +32,14 @@ set.seed(2)
 inValidation =  sample(nrow(base), 0.9*nrow(base), replace = FALSE)
 validation.set = base[train,]
 training.set = base[-train,]
+
+
 # Ici, nous n'avons pas de Exposure nulles, si jamais nous en avons, nous devons les supprimer de cette façon :
 
 # base<-base[is.na(base$Exposure)==0,]
 # base<-base[base$Exposure>0,]
 # range(base$Exposure)
+
 
 library(gbm)
 
@@ -51,6 +63,10 @@ gbm.perf(gbm1, method = "cv") # nombre d'iteration otpimal = 19754
 pred_gbm1 <- exp(predict(gbm1, newdata = validation.set))
 dev_mean_gbm1 <- calc.deviance(validation.set$Nbclaims, pred_gbm1, family = "poisson")
 dev_gbm1 <- calc.deviance(validation.set$Nbclaims, pred_gbm1, family = "poisson", calc.mean = FALSE)
+
+
+#plot(test$DriverAge, exp(lambda),type="l",col=c("red"),main="Expected Lambda")
+
 
 
 

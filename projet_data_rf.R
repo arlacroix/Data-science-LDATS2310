@@ -8,6 +8,9 @@ base <- read.table("/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data scien
 
 
 
+
+base <- read.table("/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance /projet/DBtrain.csv", sep=",", header=TRUE)
+
 base$Gender <-as.factor(base$Gender)
 base$Area <-  as.factor(base$Area)
 base$Power <- as.factor(base$Power)
@@ -24,26 +27,10 @@ base$Contract <- as.factor(base$Contract)
 # range(base$Exposure)
 
 
-test <- read.table("/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance/projet/DBtest.csv", sep=",", header=TRUE)
-
-test$Gender<-as.factor(test$Gender)
-test$Area<-  as.factor(test$Area)
-test$Power<- as.factor(test$Power)
-test$Leasing <- as.factor(test$Leasing)
-test$Fract <- as.factor(test$Fract)
-test$Contract <- as.factor(test$Contract)
-
 set.seed(2)
 inValidation =  sample(nrow(base), 0.9*nrow(base), replace = FALSE)
 training.set = base[inValidation,]
 validation.set = base[-inValidation,]
-
-
-# test$CarAge <- cut(test$CarAge, breaks = seuilCar,include.lowest = TRUE)
-# test$DriverAge   <- cut(test$DriverAge, breaks = seuilDriver )
-
-
-library(rpart)
 
 M    = 100        #number of samples
 nr   = nrow(base)  #size of the dataset
@@ -62,16 +49,18 @@ for (ct in c(1:M))
   #non parametrique
   tmp     <-sample(nr, size, replace = TRUE, prob = NULL)
   basetmp <-training.set[tmp,]	
-  
   rndFact <-sample(6, dstar, replace = FALSE, prob = NULL)
   
   equation=paste("cbind(Exposure,Nbclaims)~",listcovariates[rndFact[1]])
+
   for (j in c(2:dstar)){	
     equation=paste(equation,listcovariates[rndFact[j]],sep="+")
+
     
   }
   
   d.tree <-rpart( equation,data=basetmp, method="poisson",
+
                   parms=list(shrink=1),control=rpart.control(cp=0, xval = 10))
   inValidation = createDataPartition(base$Nbclaims, p=0.1, list=FALSE) 
   validation.set = base[inValidation,]
@@ -148,4 +137,5 @@ dev_rf2 <- calc.deviance(validation.set$Nbclaims, pred_rf, family = "poisson", c
 # pred_rf_opt <- predict(d.tree_opt, newdata = validation.set) * validation.set$Exposure
 # dev_mean_rf_opt <- calc.deviance(validation.set$Nbclaims, pred_rf_opt, family = "poisson")
 # dev_rf_opt2 <- calc.deviance(validation.set$Nbclaims, pred_rf_opt, family = "poisson", calc.mean = FALSE)
+
 
