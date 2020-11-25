@@ -1,0 +1,120 @@
+library(caret)
+library(rpart)
+library(partykit)
+library(randomForest)
+library(rfUtilities)
+library(gbm)
+library(dismo)
+library(neuralnet)
+library(tictoc)
+# On importe la base de données, attention au séparateur du fichier csv. 
+base <- read.table("/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance/projet/DBtrain.csv", sep=",", header=TRUE)
+
+
+set.seed(2)
+inValidation =  sample(nrow(base), 0.9*nrow(base), replace = FALSE)
+training.set = base[inValidation,]
+validation.set = base[-inValidation,]
+
+class(base$Exposure)
+class(base$Area)
+class(base$Power)
+class(base$Gender)
+class(base$Leasing)
+class(base$Contract)
+class(base$DriverAge)
+class(base$CarAge)
+class(base$Nbclaims)
+
+# Ici, nous n'avons pas de Exposure nulles, si jamais nous en avons, nous devons les supprimer de cette façon :
+
+# base<-base[is.na(base$Exposure)==0,]
+# base<-base[base$Exposure>0,]
+# range(base$Exposure)
+
+# on rajoute la fréquence des sinistres dans la base de données 
+Nbexposure<-base$Nbclaims/base$Exposure
+base <- data.frame(base,Nbexposure)
+
+ctrlSpecs <- trainControl(method = "cv", number = 10)
+
+tic("GLM time")
+
+glm1 <- train(Nbclaims~DriverAge+Gender+Area+Power+
+                CarAge+Fract+Leasing+Contract,data=training.set,
+              method = "glm", family = "poisson", trControl = ctrlSpecs)
+
+deviance(glm1)
+
+print(glm1)
+summary(glm1)
+
+toc()
+
+tic("Regression Tree time")
+RT <- train( Nbclaims~DriverAge+Gender+Area+Power+
+                CarAge+Fract+Leasing+Contract,data=training.set,
+              method = "rpart", trControl = ctrlSpecs)
+
+
+print(RT)
+summary(RT)
+toc()
+
+tic("Random Forest time")
+  
+RF <- randomForest(Nbclaims~ DriverAge+Gender+Area+Power+
+              CarAge+Fract+Leasing+Contract,data=training.set,  ntree=2000)
+
+# Take too much time.. 
+# trainRF <- train( Nbclaims~DriverAge+Gender+Area+Power+
+#                CarAge+Fract+Leasing+Contract,data=training.set,
+#              method = "rf", trControl = ctrlSpecs)
+
+print(RF)
+summary(RF)
+
+toc()
+
+tic("GBM time")
+gbm.fit <- gbm(Nbclaims~ offset(log(Exposure))+DriverAge+Gender+Area+Power+
+                CarAge+Fract+Leasing+Contract,data=training.set, 
+               distribution="poisson",shrinkage=0.001,n.trees=50000, cv.folds = 10 )
+
+print(gbm.fit)
+gbm.perf(gbm.fit)
+
+toc()
+
+
+ctrlSpecs2 <- trainControl(method = "cv", number = 10,preProcOptions = list(thresh = 0.75, ICAcomp = 3, k = 5))
+
+NN <- train( Nbclaims~DriverAge+Gender+Area+Power+
+               CarAge+Fract+Leasing+Contract,data=training.set,
+             method = "nnet", trControl = ctrlSpecs2)
+
+
+#Deviance Poisson
+
+pred_GLM <- predict(glm1, newdata = validation.set)
+dev_mean_GLM <- calc.deviance(validation.set$Nbclaims, pred_GLM, family = "poisson")
+dev_GLM2 <- calc.deviance(validation.set$Nbclaims, pred_GLM, family = "poisson", calc.mean = FALSE)
+
+pred_RT <- predict(RT, newdata = validation.set)
+dev_mean_RT <- calc.deviance(validation.set$Nbclaims, pred_RT, family = "poisson")
+dev_RT2 <- calc.deviance(validation.set$Nbclaims, pred_RT, family = "poisson", calc.mean = FALSE)
+
+pred_RF <- predict(RF, newdata = validation.set)
+dev_mean_RF <- calc.deviance(validation.set$Nbclaims, pred_RF, family = "poisson")
+dev_RF2 <- calc.deviance(validation.set$Nbclaims, pred_RF, family = "poisson", calc.mean = FALSE)
+
+pred_GBM <- exp(predict(gbm.fit, newdata = validation.set))
+dev_mean_GBM <- calc.deviance(validation.set$Nbclaims, pred_GBM, family = "poisson")
+dev_GBM2 <- calc.deviance(validation.set$Nbclaims, pred_GBM, family = "poisson", calc.mean = FALSE)
+
+pred_NN <- exp(predict(NN, newdata = validation.set))
+dev_mean_NN <- calc.deviance(validation.set$Nbclaims, pred_NN, family = "poisson")
+dev_NN2 <- calc.deviance(validation.set$Nbclaims, pred_NN, family = "poisson", calc.mean = FALSE)
+
+
+
