@@ -1,0 +1,119 @@
+
+#######################################################################
+#                  SCRIPT TEST NEURAL NETWORK
+#
+# neural neuralnetDeviance.r is a mod of the package neural net
+# managing error functions based on the deviance. Four stat. laws
+# are offered : err;fct="gaussian","gamma","poisson","binomial"
+# Warning, if one of these error fonction is used, a column Exposure
+# must be added to the dataframe.
+# debugSource allows to debug external functions
+# debugSource(file="neuralnetDeviance.r")
+######################################################################
+
+library(neuralnet)
+
+source(file="/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance/DHneuralnetDeviance.r")
+source(file="/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance/DHplot.nn.r")
+source(file="/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance/DHcompute.r")
+source(file="/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance/DHgwplot.r")
+
+#------------------loading the dataset--------------------------
+base <- read.table("/Users/lacroixarthur/OneDrive - UCL/Master Actu 2/Data science for finance/projet/DBtrain.csv", sep=",", header=TRUE)
+names(base)
+
+#---Conversion of text in qualitative explanatory variables-----
+base$DriverAge     <-  as.numeric(base$DriverAge)
+base$CarAge   <-  as.numeric(base$CarAge)
+base$Exposure      <-  as.numeric(base$Exposure)
+base$Nbclaims  <-  as.numeric(base$Nbclaims)
+base$Gender     <-  as.factor(base$Gender)
+base$Area       <-  as.factor(base$Area)
+base$Power      <-  as.factor(base$Power)
+base$Contract <-  as.factor(base$Contract)
+base$Leasing <-  as.factor(base$Leasing)
+base$Fract <-  as.factor(base$Fract)
+
+#-----Some durations are null -> removed from the sample--------
+# base  <- base[ is.na(base$Exposure)==0, ]
+# base  <- base[ base$Exposure>0,         ]
+
+################Study of claims frequency#######################
+
+#-------We add the frequency of claims to the data base---------
+Nbexposure<- base$Nbclaims/base$Exposure
+Exposure  <- base$Exposure 
+base      <- data.frame(base,Nbexposure,Exposure)
+
+################################################################
+#------Neural networks only accept quantitative variables-------
+##the function ConvertFactor convert factors in quant var.######
+Categ.to.Quant<-function(data,factor,removeLast=TRUE)
+  # convert a categorical variable in a set of binary variables,
+  # data: dataframe, f
+  # factor : string,name of the categorical variable 
+{
+  y = paste("data$",sep = "",factor)
+  x = eval(parse(text=y)) 
+  ndata = length(x)          #number of lines in the dataset 
+  nlgen = length(levels(x))  #number of levels 
+  if (!removeLast)      
+  {nlgen = nlgen+1}  #number of levels 
+  lev   = levels(x)
+  z     = matrix(0,ndata,nlgen-1)
+  nv    = vector("character",nlgen-1)
+  for (ct in 1:nlgen-1)
+  {
+    z[,ct] = ifelse(x==lev[ct],1,0)
+    nv[ct] = paste(factor,sep="",lev[ct])
+  }
+  colnames(z)=nv
+  #remove the column
+  data <- data[, ! names(data) %in% factor, drop = F]
+  data <- data.frame(data,z)
+  return(data)
+}  
+
+
+base <-Categ.to.Quant(base,"Gender")
+base <-Categ.to.Quant(base,"Area")
+base <-Categ.to.Quant(base,"Power")
+base <-Categ.to.Quant(base,"Contract")
+base <-Categ.to.Quant(base,"Leasing")
+base <-Categ.to.Quant(base,"Fract")
+
+####################TEST ON THE FREQUENCY############################
+#-----------Scaling of Ages, calib & valid datasets------------------
+
+scaledAge   <- (base$DriverAge-min(base$DriverAge))/
+  (max(base$DriverAge)-min(base$DriverAge))
+scaledVecAge<- (base$CarAge-min(base$CarAge))/
+  (max(base$CarAge)-min(base$CarAge))
+base        <- data.frame(base,scaledAge,scaledVecAge)
+
+nr      <- nrow(base)
+sizecal <- round(0.90*nr)
+
+tmp     <-sample( nr, sizecal , replace = FALSE, prob = NULL)
+baseCalib <-base[tmp,]
+baseValid <-base[-tmp,]
+
+#--------Fit the neural network, 3 hidden neurons ------------
+set.seed(2)
+
+model1 <- neuralnet(formula= Nbexposure~scaledAge+scaledVecAge+Gender1+Area1+Area2+Area3+Fract1+Fract2+Leasing1+Contract1+Contract2+Power1+Power2+Power3,
+                    data=baseCalib,hidden=5, threshold=0.1,stepmax = 20000,
+                    lifesign = "full",lifesign.step = 100,err.fct="poisson")
+
+plot(model1)    
+
+LLmod1      <- logLike.EDF(model1)
+
+library(dismo)
+pred_nn <- exp(predict(model1, newdata = baseValid))
+dev_nn <- calc.deviance(baseValid$Nbclaims, pred_nn, family = "poisson")
+dev_nn2 <- calc.deviance(baseValid$Nbclaims, pred_nn, family = "poisson", calc.mean = FALSE)
+
+
+
+
